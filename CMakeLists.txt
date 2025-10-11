@@ -14,6 +14,9 @@ else()
     message(STATUS "Using custom install prefix: ${CMAKE_INSTALL_PREFIX}")
 endif()
 
+# Export compile commands for IDE support
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Strict c++17 standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

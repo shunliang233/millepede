@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "convert2mille_v2_ss.C": "cpp"
+    },
+    "cmake.buildDirectory": "${workspaceFolder}/build",
+    "cmake.configureOnOpen": true,
+    "cmake.generator": "Unix Makefiles"
+}

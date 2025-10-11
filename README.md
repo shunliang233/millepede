@@ -11,21 +11,26 @@ FASER 对齐数据转换工具，将 ROOT 文件转换为 Millepede-II 格式。
 
 
 ## 编译
-
 ### 标准 CMake 流程
 ```bash
+# Setup necessary enviroment
 cmake -B build # 配置项目
 cmake --build build # 编译
 cmake --install build # 安装
 ```
-
 ### 一步编译
 ```bash
 cmake -B build && cmake --build build && cmake --install build
 ```
+### VS Code IntelliSense Environment Setup
+```bash
+# Setup necessary enviroment
+cmake -B build # Produce build/compile_commands.json
+```
+Then VS Code IntelliSense should use exactly same environment as `cmake --build`.
+
 
 ## 使用方法
-
 ```bash
 # 基本用法
 ./build/convert -i <input_directory> -o <output_file>
