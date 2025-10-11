@@ -47,7 +47,7 @@ else()
 endif()
 
 # Executable
-add_executable(convert src/main.cc src/Mille.cc)
+add_executable(convert src/main.cpp src/Mille.cpp)
 
 # Add include directory
 target_include_directories(convert PRIVATE include)

@@ -14,7 +14,7 @@
 #include <argparse/argparse.hpp>
 
 // mylib
-#include "Mille.h"
+#include "Mille.hpp"
 
 using std::cout;
 using std::endl;

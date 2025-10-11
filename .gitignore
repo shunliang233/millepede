@@ -1,21 +1,21 @@
 # 构建和安装目录
-build/
-bin/
+/build/
+/bin/
 
 # 编译产物
 
 # CMake 生成文件
 
 # 操作系统
-**/.DS_Store
-**/Thumbs.db
+.DS_Store
+Thumbs.db
 
 # 编译器和调试器文件
 
 # 日志和临时文件
 
 # 输出文件（根据项目调整）
-mp2input.bin
-mp2input.txt
+/mp2input.bin
+/mp2input.txt
 
 # 包管理器目录（如果使用）
