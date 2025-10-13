@@ -5,15 +5,17 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <filesystem>
+#include <algorithm>
 
 // root
 #include <TFile.h>
 #include <TTree.h>
 
-// gitlib
+// submodule
 #include <argparse/argparse.hpp>
 
-// mylib
+// local
 #include "Mille.hpp"
 
 using std::cout;
@@ -26,17 +28,19 @@ int main(int argc, char *argv[])
   // ArgParse
   argparse::ArgumentParser program("mille", "1.0");
   program.add_argument("-o", "--output")
-      .help("specify the output file.")
-      .required();
+      .required()
+      .help("specify the output file.");
   program.add_argument("-i", "--input")
-      .help("specify the input directory.")
-      .required();
+      .required()
+      .help("specify the input directory.");
   program.add_argument("-t", "--text")
-      .help("output data as text.")
-      .flag();
+      .default_value(false)
+      .implicit_value(true)
+      .help("output data as text (default: false)");
   program.add_argument("-z", "--zero")
-      .help("write zero data.")
-      .flag();
+      .default_value(false)
+      .implicit_value(true)
+      .help("write zero data (default: false)");
   try
   {
     program.parse_args(argc, argv);
@@ -47,10 +51,11 @@ int main(int argc, char *argv[])
     std::cerr << program;
     std::exit(1);
   }
-  bool text = program.get<bool>("--text");
-  bool zero = program.get<bool>("--zero");
-  string input = program.get<string>("--input");
-  string output = program.get<string>("--output");
+  auto text = program.get<bool>("--text");
+  auto binary = !text;
+  auto zero = program.get<bool>("--zero");
+  auto input = program.get<string>("--input");
+  auto output = program.get<string>("--output");
   if (text)
   {
     output += ".txt";
@@ -61,7 +66,7 @@ int main(int argc, char *argv[])
   }
 
   // data23
-  Mille mille_file(output.c_str(), !text, zero);
+  Mille mille_file(output.c_str(), binary, zero);
   // data22
   // TFile* f1=new TFile("/afs/cern.ch/user/k/keli/eos/Faser/alignment/global/8023_8025_8115_8301_8730_9073/kfalignment_data_iter5_noIFT_noZ.root");
   // Mille mille_file("/afs/cern.ch/user/k/keli/eos/Faser/alignment/global/8023_8025_8115_8301_8730_9073/mp2input.bin");
@@ -72,19 +77,58 @@ int main(int argc, char *argv[])
   // TFile* f1=new TFile("/afs/cern.ch/user/k/keli/eos/Faser/alignment/global/misalign_MC/inputformp2.root");
   // TFile* f1=new TFile("/afs/cern.ch/user/k/keli/eos/Faser/alignment/global/misalign_MC/inputformp2_iter0.root");
   // Mille mille_file("/afs/cern.ch/user/k/keli/eos/Faser/alignment/global/misalign_MC/mp2input.bin");
-  int Nfile = 48;
 
-  for (int fileId = 0; fileId < Nfile; fileId++)
+  // 获取目录中所有的 ROOT 文件
+  vector<string> rootFiles;
+  try
   {
-    cout << "Dealing with File " << fileId << " ..." << endl;
+    for (const auto &entry : std::filesystem::directory_iterator(input))
+    {
+      if (entry.is_regular_file())
+      {
+        if (entry.path().extension().string() == ".root")
+        {
+          rootFiles.push_back(entry.path().string());
+        }
+      }
+    }
+  }
+  catch (const std::filesystem::filesystem_error &ex)
+  {
+    std::cerr << "Error accessing directory " << input << ": " << ex.what() << std::endl;
+    return 1;
+  }
+  // 排序文件列表以确保处理顺序一致
+  std::sort(rootFiles.begin(), rootFiles.end());
+  std::cout << "Found " << rootFiles.size() << " ROOT files in " << input << std::endl;
+
+  // 遍历所有找到的 ROOT 文件
+  for (size_t fileIndex = 0; fileIndex < rootFiles.size(); ++fileIndex)
+  {
+    const string &InputFileName = rootFiles[fileIndex];
+    cout << "Dealing with File " << fileIndex + 1 << "/" << rootFiles.size()
+         << ": " << InputFileName << " ..." << endl;
     // if(fileId==29)continue;
     // if(fileId==14)continue;
     // if(fileId==31)continue;
     // if(fileId==40)continue;
-    string InputFileName = input + "/kfalignment_010738_" + std::to_string(fileId) + ".root";
-    // string InputFileName="/afs/cern.ch/user/t/tarai/run/result/kfalignment_010738_"+std::to_string(fileId)+".root";
-    TFile *f1 = new TFile(InputFileName.c_str());
-    TTree *t1 = (TTree *)f1->Get("trackParam");
+
+    // 读取 tree 树
+    TFile *f1 = TFile::Open(InputFileName.c_str(), "READ");
+    if (!f1 || f1->IsZombie())
+    {
+      std::cerr << "Error: Cannot open file " << InputFileName << std::endl;
+      if (f1)
+        f1->Close();
+      continue; // 跳过这个文件，继续处理下一个
+    }
+    TTree *t1 = (TTree *)f1->Get("tree");
+    if (!t1)
+    {
+      std::cerr << "Error: Cannot find tree 'tree' in " << InputFileName << std::endl;
+      f1->Close();
+      continue;
+    }
 
     // 用来控制 Track 中对 Hits 循环的条件表达式的选择
     bool dump6ndf_modules = false;
@@ -189,7 +233,8 @@ int main(int argc, char *argv[])
         int moduleid = m_fitParam_align_id->at(ihit);
 
         diffside = false;
-        // if((moduleid%10==1)&&(!use_sidebyside)) --moduleid;
+        if ((moduleid % 10 == 1) && (!use_sidebyside))
+          --moduleid;
         moduleid += 1000; // station from 1 not 0
 
         //	int layerid = moduleid/100;
@@ -198,31 +243,31 @@ int main(int argc, char *argv[])
         //	  nhits[moduleid%100/10]+=1;
         //	}
 
-        // if(dump6ndf_modules)
-        // {
-        //   if(use_sidebyside)
-        //   {
-        //     labels.push_back(moduleid*10+0+1);//millepede can not have label at 0
-        //     labels.push_back(moduleid*10+1+1);
-        //     glo_der.push_back(m_fitParam_align_local_derivation_x_x->at(ihit));
-        //     glo_der.push_back(m_fitParam_align_local_derivation_x_y->at(ihit));
-        //   }
-        //   else
-        //   {
-        //     labels.push_back(moduleid*10+0+1);//millepede can not have label at 0
-        //     glo_der.push_back(m_fitParam_align_local_derivation_x_x->at(ihit));
-        //   }
+        if (dump6ndf_modules)
+        {
+          if (use_sidebyside)
+          {
+            labels.push_back(moduleid * 10 + 0 + 1); // millepede can not have label at 0
+            labels.push_back(moduleid * 10 + 1 + 1);
+            glo_der.push_back(m_fitParam_align_local_derivation_x_x->at(ihit));
+            glo_der.push_back(m_fitParam_align_local_derivation_x_y->at(ihit));
+          }
+          else
+          {
+            labels.push_back(moduleid * 10 + 0 + 1); // millepede can not have label at 0
+            glo_der.push_back(m_fitParam_align_local_derivation_x_x->at(ihit));
+          }
 
-        //   labels.push_back(moduleid*10+2+1);
-        //   labels.push_back(moduleid*10+3+1);
-        //   labels.push_back(moduleid*10+4+1);
-        //   labels.push_back(moduleid*10+5+1);
-        //   glo_der.push_back(m_fitParam_align_local_derivation_x_z->at(ihit));
-        //   glo_der.push_back(m_fitParam_align_local_derivation_x_rx->at(ihit));
-        //   glo_der.push_back(m_fitParam_align_local_derivation_x_ry->at(ihit));
-        //   glo_der.push_back(m_fitParam_align_local_derivation_x_rz->at(ihit));
-        // }
-        // else
+          labels.push_back(moduleid * 10 + 2 + 1);
+          labels.push_back(moduleid * 10 + 3 + 1);
+          labels.push_back(moduleid * 10 + 4 + 1);
+          labels.push_back(moduleid * 10 + 5 + 1);
+          glo_der.push_back(m_fitParam_align_local_derivation_x_z->at(ihit));
+          glo_der.push_back(m_fitParam_align_local_derivation_x_rx->at(ihit));
+          glo_der.push_back(m_fitParam_align_local_derivation_x_ry->at(ihit));
+          glo_der.push_back(m_fitParam_align_local_derivation_x_rz->at(ihit));
+        }
+        else
         {
           labels.push_back(moduleid * 10 + 0 + 1); // millepede can not have label at 0
           labels.push_back(((moduleid / 10) * 10) * 10 + 1 + 1);
@@ -245,50 +290,50 @@ int main(int argc, char *argv[])
             labels.push_back(layerid * 10 + 4 + 1);
             glo_der.push_back(m_fitParam_align_global_derivation_y_x->at(ihit));
             glo_der.push_back(m_fitParam_align_global_derivation_y_y->at(ihit));
-            // if(dumpz_layers)
-            // {
-            //   labels.push_back(layerid*10+5+1);
-            //   glo_der.push_back(m_fitParam_align_global_derivation_y_z->at(ihit));
-            // }
+            if (dumpz_layers)
+            {
+              labels.push_back(layerid * 10 + 5 + 1);
+              glo_der.push_back(m_fitParam_align_global_derivation_y_z->at(ihit));
+            }
             glo_der.push_back(m_fitParam_align_global_derivation_y_rx->at(ihit));
             glo_der.push_back(m_fitParam_align_global_derivation_y_ry->at(ihit));
             glo_der.push_back(m_fitParam_align_global_derivation_y_rz->at(ihit));
           }
-          // else
-          // {
-          //   labels.push_back(layerid*10+0+1);//millepede can not have label at 0
-          //   labels.push_back(layerid*10+1+1);
-          //   glo_der.push_back(m_fitParam_align_global_derivation_y_y->at(ihit));
-          //   glo_der.push_back(m_fitParam_align_global_derivation_y_rz->at(ihit));
-          // }
+          else
+          {
+            labels.push_back(layerid * 10 + 0 + 1); // millepede can not have label at 0
+            labels.push_back(layerid * 10 + 1 + 1);
+            glo_der.push_back(m_fitParam_align_global_derivation_y_y->at(ihit));
+            glo_der.push_back(m_fitParam_align_global_derivation_y_rz->at(ihit));
+          }
         }
 
-        // if(dumpstations)
-        // {
-        //   int stationid = moduleid/1000;
-        //   if(dump6ndf_stations)
-        //   {
-        //     labels.push_back(stationid*10+0+1);//millepede can not have label at 0
-        //     labels.push_back(stationid*10+1+1);
-        //     labels.push_back(stationid*10+2+1);
-        //     labels.push_back(stationid*10+3+1);
-        //     labels.push_back(stationid*10+4+1);
-        //     labels.push_back(stationid*10+5+1);
-        //     glo_der.push_back(m_fitParam_align_global_derivation_y_x->at(ihit));
-        //     glo_der.push_back(m_fitParam_align_global_derivation_y_y->at(ihit));
-        //     glo_der.push_back(m_fitParam_align_global_derivation_y_z->at(ihit));
-        //     glo_der.push_back(m_fitParam_align_global_derivation_y_rx->at(ihit));
-        //     glo_der.push_back(m_fitParam_align_global_derivation_y_ry->at(ihit));
-        //     glo_der.push_back(m_fitParam_align_global_derivation_y_rz->at(ihit));
-        //   }
-        //   else
-        //   {
-        //     labels.push_back(stationid*10+0+1);//millepede can not have label at 0
-        //     labels.push_back(stationid*10+1+1);
-        //     glo_der.push_back(m_fitParam_align_global_derivation_y_y->at(ihit));
-        //     glo_der.push_back(m_fitParam_align_global_derivation_y_rz->at(ihit));
-        //   }
-        // }
+        if (dumpstations)
+        {
+          int stationid = moduleid / 1000;
+          if (dump6ndf_stations)
+          {
+            labels.push_back(stationid * 10 + 0 + 1); // millepede can not have label at 0
+            labels.push_back(stationid * 10 + 1 + 1);
+            labels.push_back(stationid * 10 + 2 + 1);
+            labels.push_back(stationid * 10 + 3 + 1);
+            labels.push_back(stationid * 10 + 4 + 1);
+            labels.push_back(stationid * 10 + 5 + 1);
+            glo_der.push_back(m_fitParam_align_global_derivation_y_x->at(ihit));
+            glo_der.push_back(m_fitParam_align_global_derivation_y_y->at(ihit));
+            glo_der.push_back(m_fitParam_align_global_derivation_y_z->at(ihit));
+            glo_der.push_back(m_fitParam_align_global_derivation_y_rx->at(ihit));
+            glo_der.push_back(m_fitParam_align_global_derivation_y_ry->at(ihit));
+            glo_der.push_back(m_fitParam_align_global_derivation_y_rz->at(ihit));
+          }
+          else
+          {
+            labels.push_back(stationid * 10 + 0 + 1); // millepede can not have label at 0
+            labels.push_back(stationid * 10 + 1 + 1);
+            glo_der.push_back(m_fitParam_align_global_derivation_y_y->at(ihit));
+            glo_der.push_back(m_fitParam_align_global_derivation_y_rz->at(ihit));
+          }
+        }
 
         loc_der.push_back(m_fitParam_align_local_derivation_x_par_x->at(ihit));
         loc_der.push_back(m_fitParam_align_local_derivation_x_par_y->at(ihit));
@@ -306,6 +351,9 @@ int main(int argc, char *argv[])
       mille_file.end();
       // mille_file.flushTrack();
     }
+
+    // 关闭当前文件
+    f1->Close();
   }
   mille_file.kill();
 }
