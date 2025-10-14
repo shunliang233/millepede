@@ -100,7 +100,8 @@ int main(int argc, char *argv[])
   }
   // 排序文件列表以确保处理顺序一致
   std::sort(rootFiles.begin(), rootFiles.end());
-  std::cout << "Found " << rootFiles.size() << " ROOT files in " << input << std::endl;
+  cout << "Found " << rootFiles.size() << " ROOT files in " << input << endl;
+  cout << "Converting " << input << " to " << output << " ..." << endl;
 
   // 遍历所有找到的 ROOT 文件
   for (size_t fileIndex = 0; fileIndex < rootFiles.size(); ++fileIndex)
