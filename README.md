@@ -9,6 +9,10 @@ FASER 对齐数据转换工具，将 ROOT 文件转换为 Millepede-II 格式。
 - **CMake** (版本 3.16+)
 - **C++ 编译器** (支持 C++17)
 
+```bash
+git clone --recurse-submodules git@github.com:shunliang233/Mille.git
+```
+
 
 ## 编译
 ### 标准 CMake 流程

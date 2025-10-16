@@ -15,7 +15,5 @@ Thumbs.db
 # 日志和临时文件
 
 # 输出文件（根据项目调整）
-/mp2input.bin
-/mp2input.txt
 
 # 包管理器目录（如果使用）

@@ -1,8 +1,8 @@
 # Project
 cmake_minimum_required(VERSION 3.16)
-project(mille_converter 
+project(millepede 
     VERSION 1.0.0
-    DESCRIPTION "FASER alignment data converter to Millepede-II format"
+    DESCRIPTION "Track parameters to Alignment parameters conversion tool chain."
     LANGUAGES CXX
 )
 
@@ -46,24 +46,31 @@ else()
     )
 endif()
 
-# Executable
-add_executable(convert src/main.cpp src/Mille.cpp)
-
-# Add include directory
-target_include_directories(convert PRIVATE include)
-
-# Link libraries
-target_link_libraries(convert PRIVATE 
+# Executable 1root2bin
+add_executable(1convert src/main.cpp src/Mille.cpp)
+target_include_directories(1convert PRIVATE include)
+target_link_libraries(1convert PRIVATE 
     ROOT::Core 
     ROOT::RIO 
     ROOT::Tree
     argparse::argparse
 )
+# Excutable 2pede
+
+# Excutable 3fixanotherlayers
+add_executable(3fixanotherlayers src/Fixfromstep1.cpp)
+
+# Excutable 4pede2
+
+# Excutable 5reconvert
+add_executable(5.1PedetoDB_ss src/PedetoDB_ss.cpp)
+add_executable(5.2add_param src/add_param.cpp)
+
 # Compiler options based on build type
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    target_compile_options(convert PRIVATE -g -O0 -Wall -Wextra)
+    add_compile_options(-g -O0 -Wall -Wextra)
 else()
-    target_compile_options(convert PRIVATE -O3 -DNDEBUG)
+    add_compile_options(-O3 -DNDEBUG)
 endif()
 
 # Configuration summary
@@ -74,8 +81,27 @@ message(STATUS "argparse dir: ${CMAKE_CURRENT_SOURCE_DIR}/argparse")
 message(STATUS "C++ standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "=====================================")
 
-# Installation
-install(TARGETS convert
+# Installation: 安装所有可执行文件到 bin 目录
+install(TARGETS
+    1convert
+    3fixanotherlayers
+    5.1PedetoDB_ss
+    5.2add_param
     RUNTIME DESTINATION bin
+    COMPONENT Runtime
+)
+
+
+# Configure Python script
+set(MILLEPEDE_BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin")
+set(MILLEPEDE_TXT_DIR "${CMAKE_INSTALL_PREFIX}/txt")
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/millepede_temp.py"
+    "${CMAKE_CURRENT_BINARY_DIR}/millepede.py"
+    @ONLY
+)
+# Install configured Python script
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/millepede.py"
+    DESTINATION bin
     COMPONENT Runtime
 )
